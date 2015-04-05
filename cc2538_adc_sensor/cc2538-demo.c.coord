@@ -1,0 +1,112 @@
+#include "contiki.h"
+#include "cpu.h"
+#include "sys/etimer.h"
+#include "sys/rtimer.h"
+#include "dev/leds.h"
+#include "dev/uart.h"
+#include "dev/button-sensor.h"
+#include "dev/watchdog.h"
+#include "dev/serial-line.h"
+#include "dev/sys-ctrl.h"
+#include "net/rime/broadcast.h"
+#include <stdio.h>
+#include <stdint.h>
+/*---------------------------------------------------------------------------*/
+#define LOOP_INTERVAL       CLOCK_SECOND
+#define LEDS_OFF_HYSTERISIS (RTIMER_SECOND >> 1)
+#define LEDS_PERIODIC       LEDS_YELLOW
+#define LEDS_BUTTON         LEDS_RED
+#define LEDS_SERIAL_IN      LEDS_ORANGE
+#define LEDS_REBOOT         LEDS_ALL
+#define LEDS_RF_RX          (LEDS_YELLOW | LEDS_ORANGE)
+#define BROADCAST_CHANNEL   129
+#define MAX_NODES	    8
+#define TIME_IN_SEC	    7
+/*---------------------------------------------------------------------------*/
+static struct etimer et;
+static struct rtimer rt;
+static uint16_t counter;
+static uint16_t count_flag;
+static uint16_t a[3];
+static uint16_t d[2];
+int Transmit_Flag1 = 0;
+/*---------------------------------------------------------------------------*/
+PROCESS(cc2538_demo_process, "cc2538 demo process");
+AUTOSTART_PROCESSES(&cc2538_demo_process);
+/*---------------------------------------------------------------------------*/
+static void
+broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from) { 
+	int16_t *dataptr_temp1;
+ 	leds_toggle(LEDS_RF_RX);
+    	dataptr_temp1= (int16_t *)packetbuf_dataptr();
+
+
+	if (dataptr_temp1[0]==a[0]) {
+		Transmit_Flag1=1;
+		d[0]=dataptr_temp1[0];
+		d[1]=dataptr_temp1[1];
+	} else {
+		Transmit_Flag1=0;
+	}
+
+ 	if(Transmit_Flag1==1) {
+		if (d[0]==1) {
+			printf("The value of temperature reported from Node_ID %d is %d degree celsius.\n\r", d[0], d[1]);
+		}
+                if (d[0]==4) {
+			printf("The raw ambient light sensor value reported from Node_ID %d is %d lux.\n\r", d[0], d[1]);
+		}
+		if (d[0]==7) {
+			printf("The positive power supply value,'Vdd' reported from Node_ID %d is %d volts.\n\r", d[0], d[1]);
+		}
+		Transmit_Flag1=0;               
+        } 
+}
+/*---------------------------------------------------------------------------*/
+static const struct broadcast_callbacks bc_rx = { broadcast_recv };
+static struct broadcast_conn bc;
+/*---------------------------------------------------------------------------*/
+void rt_callback(struct rtimer *t, void *ptr) {
+	leds_off(LEDS_PERIODIC);
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(cc2538_demo_process, ev, data)
+{
+
+	PROCESS_EXITHANDLER(broadcast_close(&bc))
+
+	PROCESS_BEGIN();
+
+	counter = 0;
+	count_flag=0;
+	broadcast_open(&bc, BROADCAST_CHANNEL, &bc_rx);
+
+	while(1) {
+		if(count_flag==0) {
+			etimer_set(&et, CLOCK_SECOND);
+			count_flag=1;
+		}	
+		PROCESS_YIELD();
+
+		if(ev == PROCESS_EVENT_TIMER) {
+			leds_on(LEDS_PERIODIC);
+	
+			counter++;
+			a[0]=counter;
+			a[1]=TIME_IN_SEC - 5;
+			a[2]=1;   
+			etimer_set(&et, CLOCK_SECOND*1);
+
+			printf("node_ID=%d\n\r", a[0]);
+			if (a[0]== 8) {
+				printf("\n\n\r"); 
+			}
+			if(counter==8) {
+				counter=(counter % 8);
+				etimer_set(&et, CLOCK_SECOND*TIME_IN_SEC);
+			}
+		}		
+	}
+
+	PROCESS_END();
+}

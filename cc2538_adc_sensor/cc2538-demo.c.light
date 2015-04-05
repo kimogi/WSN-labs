@@ -1,0 +1,136 @@
+#include "contiki.h"
+#include "cpu.h"
+#include "sys/etimer.h"
+#include "sys/rtimer.h"
+#include "dev/leds.h"
+#include "dev/uart.h"
+#include "dev/button-sensor.h"
+#include "dev/adc-sensor.h"
+#include "dev/watchdog.h"
+#include "dev/serial-line.h"
+#include "dev/sys-ctrl.h"
+#include "net/rime/broadcast.h"
+#include <stdio.h>
+#include <stdint.h>
+
+/*---------------------------------------------------------------------------*/
+#define LOOP_INTERVAL       CLOCK_SECOND
+#define LEDS_OFF_HYSTERISIS (RTIMER_SECOND >> 1)
+#define LEDS_PERIODIC       LEDS_YELLOW
+#define LEDS_BUTTON         LEDS_RED
+#define LEDS_SERIAL_IN      LEDS_ORANGE
+#define LEDS_REBOOT         LEDS_ALL
+#define LEDS_RF_RX          (LEDS_YELLOW | LEDS_ORANGE)
+#define BROADCAST_CHANNEL   129
+//#define node_ID = 5 //1 second
+  //node_ID = 2;//2 minutes
+  //node_ID = 3;//1 hour
+//#define node_ID 4
+//#define node_ID 5
+  //node_ID = 6;//9 hours
+  //node_ID = 7;//9 hours
+  //node_ID = 8;//9 hours
+  //node_ID = 9;//9 hours
+/*---------------------------------------------------------------------------*/
+static struct etimer et;
+static struct rtimer rt;
+static uint16_t counter;
+static uint16_t sleep;
+static uint16_t node_ID = 4;
+int Transmit_Flag = 0;
+static uint16_t b[2];
+int16_t light;
+/*---------------------------------------------------------------------------*/
+PROCESS(cc2538_demo_process, "cc2538 demo process");
+AUTOSTART_PROCESSES(&cc2538_demo_process);
+/*---------------------------------------------------------------------------*/
+static void
+broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
+{
+//uint16_t dataptr_temp;
+  leds_toggle(LEDS_RF_RX);
+  //printf("Received %u bytes: '0x%04x'\n", packetbuf_datalen(),*(uint16_t *)packetbuf_dataptr());
+//printf("Received %u bytes: %d \n", packetbuf_datalen(),*(uint16_t *)packetbuf_dataptr());
+//dataptr_temp= *(uint16_t *)packetbuf_dataptr();
+//if(dataptr_temp == node_ID)
+//{
+//Transmit_Flag=1;
+//}
+//else
+//{
+//Transmit_Flag=0;
+//}
+}
+/*---------------------------------------------------------------------------*/
+static const struct broadcast_callbacks bc_rx = { broadcast_recv };
+static struct broadcast_conn bc;
+/*---------------------------------------------------------------------------*/
+void
+rt_callback(struct rtimer *t, void *ptr)
+{
+  leds_off(LEDS_PERIODIC);
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(cc2538_demo_process, ev, data)
+{
+
+  PROCESS_EXITHANDLER(broadcast_close(&bc))
+
+  PROCESS_BEGIN();
+
+  counter = 0;
+  //sleep=0;
+  broadcast_open(&bc, BROADCAST_CHANNEL, &bc_rx);
+  etimer_set(&et, CLOCK_SECOND*0.5);
+  while(1) {
+    
+    etimer_set(&et, CLOCK_SECOND*0.5);
+    //etimer_set(&et, CLOCK_SECOND*45);
+    PROCESS_YIELD();
+   // rtimer_set(&rt, RTIMER_NOW() + LEDS_OFF_HYSTERISIS, RTIMER_NOW(), rt_callback, NULL);
+
+    if(ev == PROCESS_EVENT_TIMER) {
+      leds_on(LEDS_PERIODIC);
+       printf("Counter = 0x%08x, node_ID =%d\n\r", counter, node_ID);
+      //printf("Counter = 0x%08, node_ID=%d\n" counter,node_ID);
+      //etimer_set(&et, CLOCK_SECOND*4);
+      //rtimer_set(&rt, RTIMER_NOW() + LEDS_OFF_HYSTERISIS, 49, rt_callback, NULL);
+//if(Transmit_Flag==1)
+//{
+		  light = adc_sensor.value(ADC_SENSOR_ALS);
+                  printf("This is end device with node_ID=%d transmitting raw ambient light sensor value ='%d' lux to the Coordinator.\n\r", node_ID, light);
+                  b[0] = node_ID;
+                  b[1] = light;
+        	  packetbuf_copyfrom(&b, sizeof(b));
+                  broadcast_send(&bc);
+                //packetbuf_copyfrom(&node_ID, sizeof(node_ID));//indrajit
+        	
+                rtimer_set(&rt, RTIMER_NOW() + LEDS_OFF_HYSTERISIS, 4, rt_callback, NULL);
+                Transmit_Flag=0;
+//}
+
+	//	packetbuf_copyfrom(&counter, sizeof(counter));//indrajit
+        //	broadcast_send(&bc);//indrajit
+
+	etimer_set(&et, CLOCK_SECOND*0.5);	
+    } else if(ev == sensors_event) {
+      if(data == &button_select_sensor) {
+        packetbuf_copyfrom(&b, sizeof(b));
+        broadcast_send(&bc);
+      } else if(data == &button_left_sensor || data == &button_right_sensor) {
+        leds_toggle(LEDS_BUTTON);
+      } else if(data == &button_down_sensor) {
+        cpu_cpsid();
+        leds_on(LEDS_REBOOT);
+        watchdog_reboot();
+      } else if(data == &button_up_sensor) {
+        sys_ctrl_reset();
+      }
+    } /*else if(ev == serial_line_event_message) {
+      leds_toggle(LEDS_SERIAL_IN);
+    }*/
+    counter++;
+}
+PROCESS_END();  
+}
+
