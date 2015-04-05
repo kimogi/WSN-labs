@@ -58,6 +58,11 @@ PROCESS_THREAD(cc2538_demo_process, ev, data)
 
 	PROCESS_BEGIN();
 
+	//lpm_enter();
+        //REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
+        //lmp_exit();
+        //REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM0;
+
 	counter = 0;
 	while(1) {
 
