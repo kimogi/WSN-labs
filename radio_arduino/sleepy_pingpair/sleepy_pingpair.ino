@@ -34,7 +34,7 @@ void setup (void) {
     		setup_watchdog(wdt_1s);
   
 	radio.begin();
-	radio.setPayloadSize(sizeof(long));
+	//radio.setPayloadSize(sizeof(long));
 	radio.setRetries(15, 15);
   	
 	if (role == role_ping_out) {
@@ -47,7 +47,7 @@ void setup (void) {
 
   	radio.startListening();
   	radio.printDetails();
-	delay(500);
+	//delay(500);
 }
 
 void loop (void) {
@@ -55,14 +55,14 @@ void loop (void) {
     		
 		radio.stopListening();
     		unsigned long time = millis();
-    		printf("Now sending %lu... ", time);
-    		delay(500);
+    		//printf("Now sending %lu... ", time);
+    		//delay(500);
 		bool ok = radio.write(&time, sizeof(long));
 	
-		if (ok)
-			printf("Ok... ");
-		else
-			printf("Failed...");    		
+		//if (ok)
+		//	printf("Ok... ");
+		//else
+		//	printf("Failed...");    		
 
 		radio.startListening();
 		unsigned long started_waiting_at = millis();
@@ -71,13 +71,14 @@ void loop (void) {
       			if (millis() - started_waiting_at > 500)
         			timeout = true;
     		if (timeout) {
-      			printf("Response timed out.\n\r");
+      		//	printf("Response timed out.\n\r");
     		} else {	
-			unsigned long got_time;
-               	 	radio.read(&got_time, sizeof(long));
+			char *pl = "11111111111111111111111111111111";
+               	 	radio.read(pl, 32);
                 	printf("Got response %lu, round-trip delay: %lu\n\r", got_time, millis()-got_time);
+			delay(500);
 		}
-		delay(500);
+		//delay(500);
 
 		radio.powerDown();
 		while (sleep_cycles_remaining)
@@ -91,12 +92,12 @@ void loop (void) {
       			bool done = false;
       			while (!done) {
         			done = radio.read( &got_time, sizeof(long));
-        			printf("Got payload %lu at %lu...", got_time, millis());
+        		//	printf("Got payload %lu at %lu...", got_time, millis());
       			}
       			
 			radio.stopListening();
       			radio.write(&got_time, sizeof(long));
-      			printf("Sent response.\n\r");
+      		//	printf("Sent response.\n\r");
       			radio.startListening();
 		} 
   	}
