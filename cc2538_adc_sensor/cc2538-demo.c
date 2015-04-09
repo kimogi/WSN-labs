@@ -58,9 +58,6 @@ PROCESS_THREAD(cc2538_demo_process, ev, data)
 
 	PROCESS_BEGIN();
 
-	lpm_enter();
-	REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
-
 	counter = 0;
 	while(1) {
 
@@ -72,27 +69,20 @@ PROCESS_THREAD(cc2538_demo_process, ev, data)
       			
 			Vdd = adc_sensor.value(ADC_SENSOR_VDD_3);
 			Vdd = ((Vdd * (3 * 1190) / (2047 << 4))/1000);
-			if (Vdd <= 1) {
-				lpm_exit();
-        			REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM0;
 
-				node_ID = 7;
-				printf("Counter = 0x%08x, node_ID =%d\n\r", counter, node_ID);
-        	        	printf("This is end device with node_ID=%d ", node_ID); 
-				printf("transmitting value of the positive power supply to its pins,");
-				printf(" 'Vdd' ='%d' volts to the Coordinator.\n\r", Vdd);
-        	       		printf("\n\n");
-				b[0] = node_ID;
-        	        	b[1] = Vdd;
-	       			packetbuf_copyfrom(&b, sizeof(b));
-				broadcast_open(&bc, BROADCAST_CHANNEL, &bc_rx);
-				broadcast_send(&bc);
-				broadcast_close(&bc);		
+			node_ID = 7;
+			printf("Counter = 0x%08x, node_ID =%d\n\r", counter, node_ID);
+        	        printf("This is end device with node_ID=%d ", node_ID); 
+			printf("transmitting value of the positive power supply to its pins,");
+			printf(" 'Vdd' ='%d' volts to the Coordinator.\n\r", Vdd);
+        	       	printf("\n\n");
+			b[0] = node_ID;
+        	        b[1] = Vdd;
+	       		packetbuf_copyfrom(&b, sizeof(b));
+			broadcast_open(&bc, BROADCAST_CHANNEL, &bc_rx);
+			broadcast_send(&bc);
+			broadcast_close(&bc);		
 
-				lpm_enter();
-       		 		REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
-			}
-			
 			light = adc_sensor.value(ADC_SENSOR_ALS);
 			if (light <= 6000 || light >= 17500) {
 				lpm_exit();
@@ -109,16 +99,13 @@ PROCESS_THREAD(cc2538_demo_process, ev, data)
                 		broadcast_open(&bc, BROADCAST_CHANNEL, &bc_rx);
                         	broadcast_send(&bc);
                         	broadcast_close(&bc);
-
-				lpm_enter();
-        			REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
 			}
 
 			temp = adc_sensor.value(ADC_SENSOR_TEMP);
 			temp = (((25 + ((temp >> 4) - 1422) * 10 / 42) - 3)/2);
 			if (temp <= 10) {
-				lpm_exit();
-                                REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM0;
+			//	lpm_exit();
+                         //       REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM0;
 
 				node_ID = 1;        	
 				printf("Counter = 0x%08x, node_ID =%d\n\r", counter, node_ID);
@@ -132,8 +119,8 @@ PROCESS_THREAD(cc2538_demo_process, ev, data)
                         	broadcast_send(&bc);
                         	broadcast_close(&bc);
 
-				lpm_enter();
-        			REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
+			//	lpm_enter();
+        		//	REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
 			}
 
                 	rtimer_set(&rt, RTIMER_NOW() + LEDS_OFF_HYSTERISIS, 4, rt_callback, NULL);

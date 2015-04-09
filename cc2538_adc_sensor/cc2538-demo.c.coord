@@ -38,7 +38,8 @@ static void
 broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from) { 
 	int16_t *dataptr_temp1;
  	leds_toggle(LEDS_RF_RX);
-    	dataptr_temp1= (int16_t *)packetbuf_dataptr();
+		
+	dataptr_temp1= (int16_t *)packetbuf_dataptr();
 
 
 	if (dataptr_temp1[0]==a[0]) {
@@ -52,6 +53,8 @@ broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from) {
  	if(Transmit_Flag1==1) {
 		if (d[0]==1) {
 			printf("The value of temperature reported from Node_ID %d is %d degree celsius.\n\r", d[0], d[1]);
+			lpm_enter();
+                      	REG(SYS_CTRL_PMCTL) = SYS_CTRL_PMCTL_PM2;
 		}
                 if (d[0]==4) {
 			printf("The raw ambient light sensor value reported from Node_ID %d is %d lux.\n\r", d[0], d[1]);
@@ -59,8 +62,9 @@ broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from) {
 		if (d[0]==7) {
 			printf("The positive power supply value,'Vdd' reported from Node_ID %d is %d volts.\n\r", d[0], d[1]);
 		}
+		
 		Transmit_Flag1=0;               
-        } 
+        }
 }
 /*---------------------------------------------------------------------------*/
 static const struct broadcast_callbacks bc_rx = { broadcast_recv };
