@@ -25,7 +25,7 @@ void setup (void) {
 
 	radio.begin();
 	radio.setRetries(15,15);
-	radio.setPayloadSize(sizeof(long));
+	radio.setPayloadSize(sizeof(unsigned long));
 
 	if (role == role_ping_out) {
 		radio.openWritingPipe(pipes[0]);
@@ -39,47 +39,36 @@ void setup (void) {
 	radio.printDetails();
 }
 
-void loop(void) {
-	if (role == role_ping_out) {
-    		radio.stopListening();
-    		unsigned long time = millis();
-    		printf("Now sending %lu... ", time);
-    		bool ok = radio.write( &time, sizeof(unsigned long) );
-    
-    		if (ok)
-      			printf("ok...\n\r");
-    		else
-      			printf("failed.\n\r");
+static unsigned long sent_count = 0;
+static unsigned long rec_count = 0;
+static unsigned long start_time = 0;
+static unsigned long time = 0;
 
-    		radio.startListening();
-    		unsigned long started_waiting_at = millis();
-    		bool timeout = false;
-    		while (!radio.available() && !timeout)
-      			if (millis() - started_waiting_at > 200)
-        			timeout = true;
-    		if (timeout) {
-      			printf("Failed, response timed out.\n\r");
-    		} else {
-      			unsigned long got_time;
-      			radio.read(&got_time, sizeof(unsigned long));
-      			printf("Got response %lu, round-trip delay: %lu\n\r", got_time, millis()-got_time);
-    		}
-    		delay(1000);
-  	}
-  	if (role == role_pong_back) {
-    		if (radio.available()) {
-      			unsigned long got_time;
-      			bool done = false;
-      			while (!done) {
-        			done = radio.read( &got_time, sizeof(unsigned long) );
-        			printf("Got payload %lu... ", got_time);
-				delay(20);
-      			}
-      			
+void loop (void) {
+	if (start_time == 0) {
+		start_time = millis();
+		time = start_time;
+	} else {
+		time = millis();
+	}
+	if (time - start_time >= 10000) {
+		printf("%d %d\n\r", sent_count, rec_count);
+		while(true);
+	} else {
+		if (role == role_ping_out) {
 			radio.stopListening();
-      			radio.write( &got_time, sizeof(unsigned long) );
-      			printf("Sent response.\n\r");
-      			radio.startListening();
-    		}
-  	}
+	    		radio.write(&time, sizeof(unsigned long));
+			sent_count++;		
+	  	}
+	  	if (role == role_pong_back) {
+			if (radio.available()) {
+	      			unsigned long got_time;
+      				bool done = false;
+      				while (!done) {
+        				done = radio.read( &got_time, sizeof(unsigned long) );
+      				}
+      				rec_count++;
+    			}
+  		}
+	}
 }
